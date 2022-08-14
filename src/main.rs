@@ -1,4 +1,4 @@
-use rlox::scanner::Scanner;
+use rlox::{parser::Parser, scanner::Scanner};
 use std::env;
 
 fn main() {
@@ -15,7 +15,9 @@ fn main() {
 fn run(source: String) {
     let mut scanner = Scanner::new(source);
     scanner.scan_tokens();
-    for token in scanner.tokens {
+    for token in scanner.tokens.iter() {
         println!("{:#?}", token)
     }
+    let mut parser = Parser::new(scanner.tokens);
+    println!("{}", parser.expression().expect("Error while parsing"));
 }

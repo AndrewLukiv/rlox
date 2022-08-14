@@ -1,8 +1,7 @@
-use crate::util::format_number;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-pub enum Token {
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenType {
     // Single-character tokens
     Dot,
     Comma,
@@ -27,9 +26,9 @@ pub enum Token {
     LessEqual,
 
     // Literals.
-    Identifier(String),
-    String(String),
-    Number(f64),
+    Identifier,
+    String,
+    Number,
 
     // Keywords.
     And,
@@ -52,58 +51,12 @@ pub enum Token {
     EOF,
 }
 
-impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Token::Dot => write!(f, "."),
-            Token::Comma => write!(f, ","),
-            Token::Semicolon => write!(f, ";"),
-            Token::Plus => write!(f, "+"),
-            Token::Minus => write!(f, "-"),
-            Token::Star => write!(f, "*"),
-            Token::LeftParen => write!(f, "("),
-            Token::RightParen => write!(f, ")"),
-            Token::LeftBrace => write!(f, "{{"),
-            Token::RightBrace => write!(f, "}}"),
-            Token::Slash => write!(f, "/"),
-            Token::Bang => write!(f, "!"),
-            Token::BangEqual => write!(f, "!="),
-            Token::Equal => write!(f, "="),
-            Token::EqualEqual => write!(f, "=="),
-            Token::Greater => write!(f, ">"),
-            Token::GreaterEqual => write!(f, ">="),
-            Token::Less => write!(f, "<"),
-            Token::LessEqual => write!(f, "<="),
-            Token::Identifier(i) => write!(f, "{i}"),
-            Token::String(s) => write!(f, "\"{s:?}\""),
-            Token::Number(n) => {
-                write!(f, "{}", format_number(n))
-            }
-            Token::And => write!(f, "and"),
-            Token::Class => write!(f, "class"),
-            Token::Else => write!(f, "else"),
-            Token::False => write!(f, "false"),
-            Token::Fun => write!(f, "fun"),
-            Token::For => write!(f, "for"),
-            Token::If => write!(f, "if"),
-            Token::Nil => write!(f, "nil"),
-            Token::Or => write!(f, "or"),
-            Token::Print => write!(f, "print"),
-            Token::Return => write!(f, "return"),
-            Token::Super => write!(f, "super"),
-            Token::This => write!(f, "this"),
-            Token::True => write!(f, "true"),
-            Token::Var => write!(f, "var"),
-            Token::While => write!(f, "while"),
-            Token::EOF => write!(f, ""),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct TokenInfo {
-    pub token: Token,
+    pub token_type: TokenType,
     pub line: usize,
+    pub lexeme: String,
+    pub number: Option<f64>,
 }
 
 pub struct Scanner {
@@ -112,28 +65,28 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
-    reserved_words: HashMap<String, Token>,
+    reserved_words: HashMap<String, TokenType>,
 }
 
 impl Scanner {
     pub fn new(source: String) -> Self {
         let mut reserved_words = HashMap::with_capacity(16);
-        reserved_words.insert("and".to_string(), Token::And);
-        reserved_words.insert("class".to_string(), Token::Class);
-        reserved_words.insert("else".to_string(), Token::Else);
-        reserved_words.insert("false".to_string(), Token::False);
-        reserved_words.insert("fun".to_string(), Token::Fun);
-        reserved_words.insert("for".to_string(), Token::For);
-        reserved_words.insert("if".to_string(), Token::If);
-        reserved_words.insert("nil".to_string(), Token::Nil);
-        reserved_words.insert("or".to_string(), Token::Or);
-        reserved_words.insert("print".to_string(), Token::Print);
-        reserved_words.insert("return".to_string(), Token::Return);
-        reserved_words.insert("super".to_string(), Token::Super);
-        reserved_words.insert("this".to_string(), Token::This);
-        reserved_words.insert("true".to_string(), Token::True);
-        reserved_words.insert("var".to_string(), Token::Var);
-        reserved_words.insert("while".to_string(), Token::While);
+        reserved_words.insert("and".to_string(), TokenType::And);
+        reserved_words.insert("class".to_string(), TokenType::Class);
+        reserved_words.insert("else".to_string(), TokenType::Else);
+        reserved_words.insert("false".to_string(), TokenType::False);
+        reserved_words.insert("fun".to_string(), TokenType::Fun);
+        reserved_words.insert("for".to_string(), TokenType::For);
+        reserved_words.insert("if".to_string(), TokenType::If);
+        reserved_words.insert("nil".to_string(), TokenType::Nil);
+        reserved_words.insert("or".to_string(), TokenType::Or);
+        reserved_words.insert("print".to_string(), TokenType::Print);
+        reserved_words.insert("return".to_string(), TokenType::Return);
+        reserved_words.insert("super".to_string(), TokenType::Super);
+        reserved_words.insert("this".to_string(), TokenType::This);
+        reserved_words.insert("true".to_string(), TokenType::True);
+        reserved_words.insert("var".to_string(), TokenType::Var);
+        reserved_words.insert("while".to_string(), TokenType::While);
         println!("{}", reserved_words.len());
         Scanner {
             source: source.chars().collect(),
@@ -150,49 +103,49 @@ impl Scanner {
             self.start = self.current;
             self.scan_token();
         }
-        self.add_token(Token::EOF);
+        self.add_token(TokenType::EOF,"");
     }
 
     fn scan_token(&mut self) {
         let c = self.advance();
         match c {
             c if c.is_whitespace() => {}
-            '.' => self.add_token(Token::Dot),
-            ',' => self.add_token(Token::Comma),
-            ';' => self.add_token(Token::Semicolon),
-            '+' => self.add_token(Token::Plus),
-            '-' => self.add_token(Token::Minus),
-            '*' => self.add_token(Token::Star),
-            '(' => self.add_token(Token::LeftParen),
-            ')' => self.add_token(Token::RightParen),
-            '{' => self.add_token(Token::LeftBrace),
-            '}' => self.add_token(Token::RightBrace),
+            '.' => self.add_token(TokenType::Dot, '.'),
+            ',' => self.add_token(TokenType::Comma, ','),
+            ';' => self.add_token(TokenType::Semicolon, ';'),
+            '+' => self.add_token(TokenType::Plus, '+'),
+            '-' => self.add_token(TokenType::Minus, '-'),
+            '*' => self.add_token(TokenType::Star, '*'),
+            '(' => self.add_token(TokenType::LeftParen, '('),
+            ')' => self.add_token(TokenType::RightParen, ')'),
+            '{' => self.add_token(TokenType::LeftBrace, '{'),
+            '}' => self.add_token(TokenType::RightBrace, '}'),
             '!' => {
                 if self.match_char('=') {
-                    self.add_token(Token::BangEqual)
+                    self.add_token(TokenType::BangEqual,"!=")
                 } else {
-                    self.add_token(Token::Bang)
+                    self.add_token(TokenType::Bang,'!')
                 }
             }
             '=' => {
                 if self.match_char('=') {
-                    self.add_token(Token::EqualEqual)
+                    self.add_token(TokenType::EqualEqual,"==")
                 } else {
-                    self.add_token(Token::Equal)
+                    self.add_token(TokenType::Equal,'=')
                 }
             }
             '<' => {
                 if self.match_char('=') {
-                    self.add_token(Token::LessEqual)
+                    self.add_token(TokenType::LessEqual,"<=")
                 } else {
-                    self.add_token(Token::Less)
+                    self.add_token(TokenType::Less,'<')
                 }
             }
             '>' => {
                 if self.match_char('=') {
-                    self.add_token(Token::GreaterEqual)
+                    self.add_token(TokenType::GreaterEqual,">=")
                 } else {
-                    self.add_token(Token::Greater)
+                    self.add_token(TokenType::Greater,'>')
                 }
             }
             '/' => {
@@ -201,7 +154,7 @@ impl Scanner {
                         self.advance();
                     }
                 } else {
-                    self.add_token(Token::Slash)
+                    self.add_token(TokenType::Slash,'/')
                 }
             }
             '"' => self.string(),
@@ -232,9 +185,12 @@ impl Scanner {
         let token = self
             .reserved_words
             .get(&identifier)
-            .cloned()
-            .unwrap_or(Token::Identifier(identifier));
-        self.add_token(token);
+            .cloned() ;
+        if let Some(token_type) = token{
+            self.add_token(token_type,identifier);
+        }else{
+            self.add_token(TokenType::Identifier,identifier)
+        };
     }
 
     fn number(&mut self) {
@@ -250,9 +206,9 @@ impl Scanner {
                 None | Some(_) => break,
             };
         }
-        let number: String = self.source[self.start..self.current].into_iter().collect();
-        let number: f64 = number.parse().unwrap();
-        self.add_token(Token::Number(number));
+        let number_str: String = self.source[self.start..self.current].into_iter().collect();
+        let number: f64 = number_str.parse().unwrap();
+        self.add_number_token(number_str,number);
     }
 
     fn string(&mut self) {
@@ -267,17 +223,27 @@ impl Scanner {
                 }
                 Some('"') => {
                     self.advance();
-                    self.add_token(Token::String(s));
+                    self.add_token(TokenType::String,s);
                     break;
                 }
                 _ => s.push(self.advance()),
             }
         }
     }
-    fn add_token(&mut self, token: Token) {
+    fn add_number_token(&mut self, lexeme: String, number: f64) {
         self.tokens.push(TokenInfo {
-            token,
+            token_type: TokenType::Number,
             line: self.line,
+            lexeme,
+            number: Some(number),
+        });
+    }
+    fn add_token(&mut self, token: TokenType, lexeme: impl std::fmt::Display) {
+        self.tokens.push(TokenInfo {
+            token_type: token,
+            line: self.line,
+            lexeme: lexeme.to_string(),
+            number: None,
         });
     }
     fn current_char(&self) -> char {

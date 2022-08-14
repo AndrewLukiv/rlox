@@ -1,39 +1,41 @@
-.,;
-+-*
-()
-{} //curly braces
-/
-
-!= ! =
->= > =
-<= < =
+//.,;
+//+-*
+//()
+//{} //curly braces
+///
+//
+//!= ! =
+//>= > =
+//<= < =
 
 //Hello/ world/
-/
 
-💛
-"💛
-Hello world
-"/
+//💛
+//"💛
+//Hello world
+//"/
 
-0.1 0.0 65 .0 43543.5453;
+//0.1 0.0 65 .0 43543.5453;
+//
+//hello world
+//
+//and,
+//class,
+//else,
+//false,
+//fun,
+//for,
+//if,
+//nil,
+//or,
+//print,
+//return,
+//super,
+//this,
+//true,
+//var,
+//while,
 
-hello world
-
-and,
-class,
-else,
-false,
-fun,
-for,
-if,
-nil,
-or,
-print,
-return,
-super,
-this,
-true,
-var,
-while,
-
+//5+4
+//
+5*7-8+6/2+(5+4)*3>=4
