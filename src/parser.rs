@@ -1,7 +1,7 @@
 use crate::scanner::{TokenInfo, TokenType};
 use crate::util::format_number;
 use std::fmt::Display;
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq)]
 pub enum Value {
     String(String),
     Number(f64),
@@ -9,6 +9,15 @@ pub enum Value {
     Nil,
 }
 
+impl Value{
+    pub fn is_truthy(&self)->bool{
+        match self{
+            Value::Nil=>false,
+            Value::Boolean(b)=>*b,
+            _=>true
+        }
+    }
+}
 #[derive(Debug)]
 pub enum Expr {
     Binary {
