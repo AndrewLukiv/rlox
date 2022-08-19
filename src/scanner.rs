@@ -69,7 +69,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(source: String) -> Self {
+    pub fn new(source: &String) -> Self {
         let mut reserved_words = HashMap::with_capacity(16);
         reserved_words.insert("and".to_string(), TokenType::And);
         reserved_words.insert("class".to_string(), TokenType::Class);
@@ -87,7 +87,6 @@ impl Scanner {
         reserved_words.insert("true".to_string(), TokenType::True);
         reserved_words.insert("var".to_string(), TokenType::Var);
         reserved_words.insert("while".to_string(), TokenType::While);
-        println!("{}", reserved_words.len());
         Scanner {
             source: source.chars().collect(),
             tokens: Vec::default(),

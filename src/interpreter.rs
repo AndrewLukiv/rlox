@@ -1,26 +1,147 @@
-use crate::parser::{Expr, Value};
+use crate::parser::{Expr, Stmt, Value};
 use crate::scanner::{TokenInfo, TokenType};
+use std::collections::HashMap;
+use std::io::Write;
+use std::iter::Rev;
+use std::slice::{Iter, IterMut};
+
 #[derive(Debug)]
-pub struct Interpreter;
+struct Environment {
+    scopes: Vec<VariableScope>,
+}
+#[derive(Debug, Default)]
+struct VariableScope {
+    values: HashMap<String, Value>,
+}
+
+impl Environment {
+    fn new() -> Self {
+        Environment {
+            scopes: vec![VariableScope::default()],
+        }
+    }
+    fn scopes_iter(&self) -> Rev<Iter<VariableScope>> {
+        self.scopes.iter().rev()
+    }
+    fn scopes_iter_mut(&mut self) -> Rev<IterMut<VariableScope>> {
+        self.scopes.iter_mut().rev()
+    }
+    fn get(&self, name: String) -> Result<&Value, String> {
+        for scope in self.scopes_iter() {
+            if let Some(value) = scope.values.get(&name) {
+                return Ok(value);
+            }
+        }
+        Err(format!("Undefined variable {name}."))
+    }
+
+    fn assign(&mut self, name: String, value: Value) -> Result<(), String> {
+        for scope in self.scopes_iter_mut() {
+            if scope.values.contains_key(&name) {
+                scope.values.insert(name, value);
+                return Ok(());
+            }
+        }
+        Err(format!("Undefined variable {name}."))
+    }
+    fn define(&mut self, name: String, value: Value) {
+        self.scopes.last_mut().unwrap().values.insert(name, value);
+    }
+    fn jump_in_scope(&mut self) {
+        self.scopes.push(VariableScope::default())
+    }
+    fn jump_out_scope(&mut self) {
+        if self.scopes.len() != 1 {
+            self.scopes.pop();
+        } else {
+            panic!("Try delete global scope")
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
-    pub fn evaluate(expr: &Expr) -> Result<Value, String> {
+    pub fn new() -> Self {
+        Interpreter {
+            environment: Environment::new(),
+        }
+    }
+    pub fn interpret(&mut self, statments: Vec<Stmt>) -> Result<(), String> {
+        for stmt in statments {
+            self.execute(stmt)?;
+        }
+        Ok(())
+    }
+    fn execute(&mut self, stmt: Stmt) -> Result<(), String> {
+        match stmt {
+            Stmt::Expression(e) => self.execute_expression(e),
+            Stmt::Print(e) => self.execute_print(e),
+            Stmt::Var { name, initializer } => self.execute_variable_declaration(name, initializer),
+            Stmt::Block(statments) => self.execute_block(statments),
+        }
+    }
+    fn execute_block(
+        &mut self,
+        statments: Vec<Stmt>,
+    ) -> Result<(), String> {
+        self.environment.jump_in_scope();
+        for stmt in statments{
+            self.execute(stmt)?
+        }
+        self.environment.jump_out_scope();
+        Ok(())
+    }
+    fn execute_variable_declaration(
+        &mut self,
+        name: TokenInfo,
+        initializer: Option<Expr>,
+    ) -> Result<(), String> {
+        let value = match initializer {
+            Some(expr) => self.evaluate(&expr)?,
+            None => Value::Nil,
+        };
+        self.environment.define(name.lexeme, value);
+        Ok(())
+    }
+    fn execute_print(&mut self, expr: Expr) -> Result<(), String> {
+        let value = self.evaluate(&expr)?;
+        println!("{value}");
+        std::io::stdout().flush().unwrap();
+        Ok(())
+    }
+
+    fn execute_expression(&mut self, expr: Expr) -> Result<(), String> {
+        self.evaluate(&expr)?;
+        Ok(())
+    }
+
+    pub fn evaluate(&mut self, expr: &Expr) -> Result<Value, String> {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => Interpreter::evaluate_binary(left.as_ref(), operator, right.as_ref()),
-            Expr::Unary { operator, right } => {
-                Interpreter::evaluate_unary(operator, right.as_ref())
-            }
-            Expr::Grouping(e) => Interpreter::evaluate(e),
+            } => self.evaluate_binary(left.as_ref(), operator, right.as_ref()),
+            Expr::Unary { operator, right } => self.evaluate_unary(operator, right.as_ref()),
+            Expr::Grouping(e) => self.evaluate(e),
             Expr::Literal(v) => Ok(v.clone()),
+            Expr::Variable(t) => Ok(self.environment.get(t.lexeme.clone())?.clone()),
+            Expr::Assign { name, value } => self.evaluate_assigment(name, value.as_ref()),
         }
     }
 
-    fn evaluate_unary(operator: &TokenInfo, right: &Expr) -> Result<Value, String> {
-        let right = Interpreter::evaluate(right)?;
+    fn evaluate_assigment(&mut self, name: &TokenInfo, expr: &Expr) -> Result<Value, String> {
+        let value = self.evaluate(expr)?;
+        self.environment
+            .assign(name.lexeme.clone(), value.clone())?;
+        Ok(value)
+    }
+    fn evaluate_unary(&mut self, operator: &TokenInfo, right: &Expr) -> Result<Value, String> {
+        let right = self.evaluate(right)?;
         match &operator.token_type {
             TokenType::Minus => {
                 if let Value::Number(n) = right {
@@ -39,14 +160,19 @@ impl Interpreter {
             )),
         }
     }
-    fn evaluate_binary(left: &Expr, operator: &TokenInfo, right: &Expr) -> Result<Value, String> {
-        let left = Interpreter::evaluate(left)?;
-        let right = Interpreter::evaluate(right)?;
+    fn evaluate_binary(
+        &mut self,
+        left: &Expr,
+        operator: &TokenInfo,
+        right: &Expr,
+    ) -> Result<Value, String> {
+        let left = self.evaluate(left)?;
+        let right = self.evaluate(right)?;
         match operator.token_type {
             TokenType::Plus => Interpreter::add_values(left, right),
             TokenType::Minus => Interpreter::subtract_values(left, right),
-            TokenType::Star => Interpreter::multiply_values(left,right),
-            TokenType::Slash => Interpreter::divide_values(left,right),
+            TokenType::Star => Interpreter::multiply_values(left, right),
+            TokenType::Slash => Interpreter::divide_values(left, right),
 
             TokenType::Less => Interpreter::compare_lt(left, right),
             TokenType::LessEqual => Interpreter::compare_le(left, right),
@@ -114,9 +240,7 @@ impl Interpreter {
 
     fn subtract_values(left: Value, right: Value) -> Result<Value, String> {
         match (left, right) {
-            (Value::Number(left), Value::Number(right)) => {
-                Ok(Value::Number(left - right))
-            }
+            (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left - right)),
             (_, _) => Err("To subtract operands must be two numbers".to_string()),
         }
     }

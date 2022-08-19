@@ -1,41 +1,15 @@
-//.,;
-//+-*
-//()
-//{} //curly braces
-///
-//
-//!= ! =
-//>= > =
-//<= < =
+var a=1+1;
+var b="Hello world";
+var s="It will be shadowed";
+{
+	a=a+1;
+	var s="Shadowed";
+	print a;
+	print b;
+	print s;
+	{
+		var a=100;
+		print a;
+	}
 
-//Hello/ world/
-
-//💛
-//"💛
-//Hello world
-//"/
-
-//0.1 0.0 65 .0 43543.5453;
-//
-//hello world
-//
-//and,
-//class,
-//else,
-//false,
-//fun,
-//for,
-//if,
-//nil,
-//or,
-//print,
-//return,
-//super,
-//this,
-//true,
-//var,
-//while,
-
-//5+4
-//57
-nil
+}
