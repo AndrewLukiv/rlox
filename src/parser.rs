@@ -161,8 +161,13 @@ impl Parser {
         self.peak().token_type == TokenType::EOF
     }
 
-    fn new_error(&self, error_type: ParsingErrorType, message: impl Display) -> ParsingError {
-        self.new_error_on_line(error_type, message, self.previous().line)
+    fn new_error(
+        &self,
+        error_type: ParsingErrorType,
+        message: impl Display,
+        expression: Option<Expr>,
+    ) -> ParsingError {
+        self.new_error_on_line(error_type, message, self.previous().line, expression)
     }
 
     fn new_error_on_line(
@@ -170,22 +175,28 @@ impl Parser {
         error_type: ParsingErrorType,
         message: impl Display,
         line: usize,
+        expression: Option<Expr>,
     ) -> ParsingError {
         ParsingError {
             error_type,
             message: message.to_string(),
             line,
+            expression,
         }
     }
+    fn new_expr_stmt_error(&self, message: impl Display,expr:Expr) -> ParsingError {
+        self.new_error(ParsingErrorType::Stmt, message,Some(expr))
+    }
     fn new_stmt_error(&self, message: impl Display) -> ParsingError {
-        self.new_error(ParsingErrorType::Stmt, message)
+        self.new_error(ParsingErrorType::Stmt, message, None)
     }
     fn new_expr_error(&self, message: impl Display) -> ParsingError {
-        self.new_error(ParsingErrorType::Expr, message)
+        self.new_error(ParsingErrorType::Expr, message, None)
     }
     fn new_expr_error_on_line(&self, message: impl Display, line: usize) -> ParsingError {
-        self.new_error_on_line(ParsingErrorType::Expr, message, line)
+        self.new_error_on_line(ParsingErrorType::Expr, message, line,None)
     }
+
     pub fn parse(&mut self) -> Result<Vec<Stmt>, Vec<ParsingError>> {
         let mut statments: Vec<Stmt> = Vec::new();
         let mut errors: Vec<ParsingError> = Vec::new();
@@ -348,7 +359,7 @@ impl Parser {
     fn expression_statment(&mut self) -> Result<Stmt, Vec<ParsingError>> {
         let expr = self.expression().map_err(|e| vec![e])?;
         if !self.match_tokens(&[TokenType::Semicolon]) {
-            return Err(vec![self.new_stmt_error("Expect ';' after expression")]);
+            return Err(vec![self.new_expr_stmt_error("Expect ';' after expression",expr)]);
         }
         Ok(Stmt::Expression(expr))
     }
@@ -397,7 +408,7 @@ impl Parser {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,PartialEq, Eq)]
 pub enum ParsingErrorType {
     Expr,
     Stmt,
@@ -416,4 +427,5 @@ pub struct ParsingError {
     pub error_type: ParsingErrorType,
     pub message: String,
     pub line: usize,
+    pub expression: Option<Expr>,
 }
