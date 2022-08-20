@@ -72,24 +72,27 @@ impl Interpreter {
     }
     pub fn interpret(&mut self, statments: Vec<Stmt>) -> Result<(), String> {
         for stmt in statments {
-            self.execute(stmt)?;
+            self.execute(&stmt)?;
         }
         Ok(())
     }
-    fn execute(&mut self, stmt: Stmt) -> Result<(), String> {
+    fn execute(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
             Stmt::Expression(e) => self.execute_expression(e),
             Stmt::Print(e) => self.execute_print(e),
             Stmt::Var { name, initializer } => self.execute_variable_declaration(name, initializer),
             Stmt::Block(statments) => self.execute_block(statments),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => self.execute_if(condition, then_branch.as_ref(), else_branch),
+            Stmt::While { condition, body } => self.execute_while(condition,body.as_ref()),
         }
     }
-    fn execute_block(
-        &mut self,
-        statments: Vec<Stmt>,
-    ) -> Result<(), String> {
+    fn execute_block(&mut self, statments: &Vec<Stmt>) -> Result<(), String> {
         self.environment.jump_in_scope();
-        for stmt in statments{
+        for stmt in statments {
             self.execute(stmt)?
         }
         self.environment.jump_out_scope();
@@ -97,25 +100,25 @@ impl Interpreter {
     }
     fn execute_variable_declaration(
         &mut self,
-        name: TokenInfo,
-        initializer: Option<Expr>,
+        name: &TokenInfo,
+        initializer: &Option<Expr>,
     ) -> Result<(), String> {
         let value = match initializer {
             Some(expr) => self.evaluate(&expr)?,
             None => Value::Nil,
         };
-        self.environment.define(name.lexeme, value);
+        self.environment.define(name.lexeme.clone(), value);
         Ok(())
     }
-    fn execute_print(&mut self, expr: Expr) -> Result<(), String> {
-        let value = self.evaluate(&expr)?;
+    fn execute_print(&mut self, expr: &Expr) -> Result<(), String> {
+        let value = self.evaluate(expr)?;
         println!("{value}");
         std::io::stdout().flush().unwrap();
         Ok(())
     }
 
-    fn execute_expression(&mut self, expr: Expr) -> Result<(), String> {
-        self.evaluate(&expr)?;
+    fn execute_expression(&mut self, expr: &Expr) -> Result<(), String> {
+        self.evaluate(expr)?;
         Ok(())
     }
 
@@ -131,6 +134,11 @@ impl Interpreter {
             Expr::Literal(v) => Ok(v.clone()),
             Expr::Variable(t) => Ok(self.environment.get(t.lexeme.clone())?.clone()),
             Expr::Assign { name, value } => self.evaluate_assigment(name, value.as_ref()),
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => self.evaluate_logical(left.as_ref(), operator, right.as_ref()),
         }
     }
 
@@ -243,5 +251,41 @@ impl Interpreter {
             (Value::Number(left), Value::Number(right)) => Ok(Value::Number(left - right)),
             (_, _) => Err("To subtract operands must be two numbers".to_string()),
         }
+    }
+
+    fn execute_if(
+        &mut self,
+        condition: &Expr,
+        then_branch: &Stmt,
+        else_branch: &Option<Box<Stmt>>,
+    ) -> Result<(), String> {
+        if self.evaluate(&condition)?.is_truthy() {
+            self.execute(then_branch)?;
+        } else if let Some(else_branch) = else_branch {
+            self.execute(else_branch.as_ref())?;
+        }
+        Ok(())
+    }
+
+    fn evaluate_logical(
+        &mut self,
+        left: &Expr,
+        operator: &TokenInfo,
+        right: &Expr,
+    ) -> Result<Value, String> {
+        let left = self.evaluate(left)?;
+        match operator.token_type {
+            TokenType::And if !left.is_truthy()  =>  Ok(left),
+            TokenType::Or if left.is_truthy() =>  Ok(left),
+            TokenType::And | TokenType::Or=>self.evaluate(right),
+            _ =>  Err("For logical operation operator must be 'and' or 'or'".to_string()),
+        }
+    }
+
+    fn execute_while(&mut self, condition: &Expr, body: &Stmt) -> Result<(), String> {
+        while self.evaluate(condition)?.is_truthy() {
+           self.execute(body)?;
+        }
+        Ok(())
     }
 }
